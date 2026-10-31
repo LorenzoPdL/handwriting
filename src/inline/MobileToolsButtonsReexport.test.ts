@@ -59,8 +59,8 @@ describe("MobileTools.ts re-exports the strip's button table from MobileToolsBut
 		expect(fromStrip).toBe(fromButtons);
 	});
 
-	it("the table has its twelve buttons", () => {
-		expect(buttons.BUTTONS.length).toBe(12);
+	it("the table has its thirteen buttons", () => {
+		expect(buttons.BUTTONS.length).toBe(13);
 	});
 
 	it("normalizeFoldOrder repairs a bad list to every default id once", () => {

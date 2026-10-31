@@ -39,6 +39,7 @@ import { setHitProbeContext } from "./PenHitProbe";
 import { surfaceExtents, ZERO_EXTENT } from "./SurfaceExtent";
 import { scrollProbeScroll, scrollProbeWheel } from "./ScrollProbe";
 import { installMethods } from "./InstallMethods";
+import { registerKeyboardLockEditor } from "./KeyboardLock";
 import { applyToolbarPlacement, armMouseInkQuietlyEverywhere, commitEraserRadius, copySelectionNotice, copySelectionNoticeIsRoutine, cutSelectionNotice, cutSelectionNoticeIsRoutine, enabled, getEraserRadiusPx, getEraserWholeStrokes, getInkSizeMult, getInlineEraserMode, getInlineLassoMode, getInlinePanMode, getInlineSpaceMode, getInlineTool, INLINE_DESYNCHRONIZED, inlineInk, inlineTool, instances, metrics, OVERSCROLL_GIVE_PX, persistEraserMode, persistInkSize, pickStripColor, PINCH_SCROLL_QUIET_MS, releaseMouseInkQuietlyEverywhere, scrollExpansionEnabled, setEraserRadiusPx, setEraserWholeStrokes, setInkSizeMult, type InkOverlayPlugin } from "./InkOverlay";
 
 declare module "./InkOverlay" {
@@ -353,6 +354,8 @@ declare module "./InkOverlay" {
 		this.resizeObserver.observe(host);
 		this.contentResizeObserver = new ResizeObserver((entries) => this.onContentResize(entries?.at(-1)?.contentRect.width));
 		this.contentResizeObserver.observe(this.view.contentDOM);
+		// While the keyboard lock is on, a tap in this note places the caret without raising the soft keyboard.
+		this.releaseKeyboardLock = registerKeyboardLockEditor(this.view.contentDOM);
 		// Created with no target: `syncCamera` arms it against whichever line
 		// the origin scan picks, and `handleResize` below reaches `syncCamera`
 		// on this very call. The body is a named method rather than a closure
@@ -910,6 +913,8 @@ declare module "./InkOverlay" {
 		this.resizeObserver = null;
 		this.contentResizeObserver?.disconnect();
 		this.contentResizeObserver = null;
+		this.releaseKeyboardLock?.();
+		this.releaseKeyboardLock = null;
 		this.originLineObserver?.disconnect();
 		this.originLineObserver = null;
 		this.originLine = null;

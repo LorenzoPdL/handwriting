@@ -203,6 +203,14 @@ device: it lives in this machine's own store, keyed to the vault as well as
 the machine, not in the vault itself, so a synced vault does not carry it
 from a pen tablet to a desktop.
 
+**Keyboard lock** stops a tap in a note from opening the on-screen keyboard.
+Taps still place the caret, select text and follow links, and a hardware
+keyboard still types; the on-screen keyboard just never comes up. It appears
+on touch devices, lights while the lock is on, and locking also puts away a
+keyboard that is already open. **Keyboard** turns the lock off, since asking
+to type outranks it. The choice is kept per device, like the Keyboard
+button's memory, so locking a tablet does not lock a phone the vault syncs to.
+
 Turning the pen off says **Handwriting: keyboard mode - pen ink paused, tap
 to type**; turning it back on says **Handwriting: pen ink active**. Each
 toggle owns one message and rewrites it in place rather than stacking a new

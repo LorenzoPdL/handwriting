@@ -40,6 +40,7 @@ import {
 } from "./MobileTools";
 import { overflowPlan, type StripItem } from "./StripOverflow";
 import { markPenHardwareSeen, resetPenToolsForTest } from "./PenToolsMode";
+import { setHasTouchForTest } from "./DeviceInput";
 
 // ---------------------------------------------------------------- the fake
 
@@ -407,16 +408,24 @@ function drag(h: Harness, from: number, steps: number, opts: { escape?: boolean 
 const label = (id: string): string => stripButtonFace(id)?.label ?? id;
 
 /**
- * A list of the rows this device shows, with the Keyboard id put back in the
- * slot the default order gives it: the id a mouse-only device has no row for,
- * which a drag must leave where it was saved (audit 120).
+ * A list of the rows this device shows, with each id it has no row for put
+ * back in the slot the default order gives it: Keyboard on a mouse-only device
+ * (audit 120), and the keyboard lock without touch. A drag must leave them
+ * where they were saved.
  */
 function withKeyboardInPlace(list: readonly string[]): string[] {
-	const keyboard = "handwriting:pen-ink-toggle";
-	const out = [...list];
-	out.splice(priorityFromFoldOrder(normalizeFoldOrder([])).indexOf(keyboard), 0, keyboard);
-	return out;
+	const queue = [...list];
+	return priorityFromFoldOrder(normalizeFoldOrder([])).map((id) =>
+		HIDDEN_HERE.includes(id) ? id : (queue.shift() ?? id)
+	);
 }
+
+/**
+ * The movable buttons this suite's device does not build: Keyboard, until a
+ * pen has been seen, and the keyboard lock, which needs touch - and the suite
+ * runs with none.
+ */
+const HIDDEN_HERE = ["handwriting:pen-ink-toggle", "handwriting:keyboard-lock-toggle"];
 
 // ------------------------------------------------------------- the mapping
 
@@ -478,8 +487,11 @@ const STRIP_TODAY: StripItem[] = [
 const FULL = FIXED + STRIP_TODAY.length * BTN;
 
 /** Where the dashed line goes: the number of rows that stay on the row. */
+/** The default fold order, cut to the buttons on STRIP_TODAY: the rows the control would list for it. */
+const stripOrder = (): string[] => normalizeFoldOrder([]).filter((id) => STRIP_TODAY.some((item) => item.id === id));
+
 function keptAt(available: number): number {
-	const order = normalizeFoldOrder([]);
+	const order = stripOrder();
 	const plan = overflowPlan({
 		available,
 		fixed: FIXED,
@@ -492,7 +504,7 @@ function keptAt(available: number): number {
 
 describe("fold order: the fold line is the plan's own count", () => {
 	it("keeps the whole list when the row fits", () => {
-		expect(keptAt(FULL + 200)).toBe(normalizeFoldOrder([]).length);
+		expect(keptAt(FULL + 200)).toBe(stripOrder().length);
 	});
 
 	it("folds three at a width that has room for three", () => {
@@ -506,13 +518,13 @@ describe("fold order: the fold line is the plan's own count", () => {
 		// makes a count enough: `overflowPlan` demotes in fold order, and fold
 		// order is this list read bottom-up, so the folded set is always the
 		// bottom N rows and never a hole in the middle.
-		const list = priorityFromFoldOrder(normalizeFoldOrder([]));
+		const list = priorityFromFoldOrder(stripOrder());
 		const plan = overflowPlan({
 			available: 500,
 			fixed: FIXED,
 			items: STRIP_TODAY,
 			chevron: CHEVRON,
-			demote: normalizeFoldOrder([]),
+			demote: stripOrder(),
 		});
 		expect([...plan.moved].sort()).toEqual([...list.slice(keptAt(500))].sort());
 	});
@@ -535,20 +547,32 @@ describe("fold order: the control against a fake tree", () => {
 		const h = build();
 		const ids = h.rows().map((r) => r.dataset.commandId);
 		const all = priorityFromFoldOrder(normalizeFoldOrder([]));
-		expect(ids).toEqual(all.filter((id) => id !== "handwriting:pen-ink-toggle"));
+		expect(ids).toEqual(all.filter((id) => !HIDDEN_HERE.includes(id)));
 		expect(ids).not.toContain("handwriting:pen-ink-toggle");
-		expect(ids).toHaveLength(all.length - 1);
+		expect(ids).toHaveLength(all.length - HIDDEN_HERE.length);
 		h.control.destroy();
 	});
 
-	it("lists all six on a device that has held a pen", () => {
+	it("lists every movable button on a touch device that has held a pen", () => {
 		// The other end of the same claim: the row is absent because the BUTTON
 		// is absent, not because the list lost one.
 		markPenHardwareSeen();
+		setHasTouchForTest(true);
+		try {
+			const h = build();
+			expect(h.rows().map((r) => r.dataset.commandId)).toEqual(
+				priorityFromFoldOrder(normalizeFoldOrder([]))
+			);
+			h.control.destroy();
+		} finally {
+			setHasTouchForTest(null);
+		}
+	});
+
+	it("lists the keyboard lock only where there is touch to need it", () => {
+		markPenHardwareSeen();
 		const h = build();
-		expect(h.rows().map((r) => r.dataset.commandId)).toEqual(
-			priorityFromFoldOrder(normalizeFoldOrder([]))
-		);
+		expect(h.rows().map((r) => r.dataset.commandId)).not.toContain("handwriting:keyboard-lock-toggle");
 		h.control.destroy();
 	});
 
@@ -1201,11 +1225,17 @@ describe("fold order: Keyboard on a phone and a hidden id keeps its place (audit
 	it("an iPhone lists the Keyboard row, because its strip has the button", () => {
 		Platform.isIosApp = true;
 		Platform.isPhone = true;
-		const h = build();
-		expect(h.rows().map((r) => r.dataset.commandId)).toEqual(
-			priorityFromFoldOrder(normalizeFoldOrder([]))
-		);
-		h.control.destroy();
+		// An iPhone is a touch device, so its strip has the keyboard lock as well.
+		setHasTouchForTest(true);
+		try {
+			const h = build();
+			expect(h.rows().map((r) => r.dataset.commandId)).toEqual(
+				priorityFromFoldOrder(normalizeFoldOrder([]))
+			);
+			h.control.destroy();
+		} finally {
+			setHasTouchForTest(null);
+		}
 	});
 
 	it("a drag on a device with no Keyboard button leaves Keyboard where it was saved", () => {

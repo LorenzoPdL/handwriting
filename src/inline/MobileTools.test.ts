@@ -67,6 +67,7 @@ import {
 	toolPickedHere,
 } from "./MouseInk";
 import { penInkEnabled, resetPenInkForTest, setPenInk } from "./PenInk";
+import { keyboardLocked, resetKeyboardLockForTest } from "./KeyboardLock";
 import { penOnOff } from "./PenCommand";
 import { PdfInkController } from "../pdf/PdfInkController";
 
@@ -5437,5 +5438,57 @@ describe("step-aside by opacity only, unhittable while invisible (lane LAG)", ()
 		strip.setInking(false);
 		strip.destroy();
 		expect(t.cleared()).toBe(2);
+	});
+});
+
+/**
+ * THE KEYBOARD LOCK BUTTON (KeyboardLock.ts). On a touch device only, lit while
+ * locked, and a press flips the lock without touching the tool, the pen ink or
+ * the editor's focus beyond putting an open keyboard away.
+ */
+describe("the keyboard lock button", () => {
+	const LOCK = "Keyboard lock (taps never open the on-screen keyboard)";
+	beforeEach(() => resetKeyboardLockForTest());
+	afterEach(() => resetKeyboardLockForTest());
+
+	it("is built on a touch device and not on a mouse-only one", () => {
+		const touch = new FakeEl("div", new FakeDoc());
+		const a = new MobileTools(touch as unknown as HTMLElement, fakeHost({ hasTouch: () => true }));
+		expect(touch.findByTipLabel(LOCK)).not.toBeNull();
+		a.destroy();
+		const mouse = new FakeEl("div", new FakeDoc());
+		const b = new MobileTools(mouse as unknown as HTMLElement, fakeHost());
+		expect(mouse.findByTipLabel(LOCK)).toBeNull();
+		b.destroy();
+	});
+
+	it("a press locks, lights the button and puts the keyboard away; a second press unlocks", () => {
+		const doc = new FakeDoc();
+		const pane = new FakeEl("div", doc);
+		const execed: string[] = [];
+		const focused: boolean[] = [];
+		const strip = new MobileTools(pane as unknown as HTMLElement, fakeHost({
+			hasTouch: () => true,
+			exec: (id) => void execed.push(id),
+			setEditorFocus: (on) => void focused.push(on),
+		}));
+		const lock = pane.findByTipLabel(LOCK);
+		if (!lock) throw new Error("no keyboard lock button");
+		expect(lock.classes.has("is-active")).toBe(false);
+
+		lock.fire("click", { pointerType: "touch" });
+		doc.flushFrames();
+		expect(keyboardLocked()).toBe(true);
+		expect(lock.classes.has("is-active")).toBe(true);
+		expect(focused).toEqual([false]);
+
+		lock.fire("click", { pointerType: "touch" });
+		doc.flushFrames();
+		expect(keyboardLocked()).toBe(false);
+		expect(lock.classes.has("is-active")).toBe(false);
+		expect(focused, "unlocking raised a keyboard nobody asked for").toEqual([false]);
+		expect(execed, "the lock ran a command or changed a tool").toEqual([]);
+		expect(penInkEnabled()).toBe(true);
+		strip.destroy();
 	});
 });

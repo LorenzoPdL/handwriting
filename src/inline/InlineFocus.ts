@@ -1,5 +1,6 @@
 import { diagnosticsEnabled } from "../diag/DiagSwitch";
 import { tr } from "./InlinePenRouterTrace";
+import { keyboardLocked, setKeyboardLock } from "./KeyboardLock";
 
 /**
  * Claimed pen events are cancelled before Chromium can focus CodeMirror.
@@ -105,8 +106,9 @@ function quietKeyboardForPen(content: HTMLElement, root: HTMLElement): void {
 		penQuietKeyboard.delete(content);
 		content.removeEventListener("blur", release);
 		root.removeEventListener("pointerdown", onDown, true);
-		// Changed by someone else since: theirs now, leave it.
-		if (content.getAttribute("inputmode") !== "none") return;
+		// Changed by someone else since: theirs now, leave it. And while the
+		// keyboard lock is on, "none" is the lock's, not this hold's.
+		if (content.getAttribute("inputmode") !== "none" || keyboardLocked()) return;
 		if (prior === null) content.removeAttribute("inputmode");
 		else content.setAttribute("inputmode", prior);
 	};
@@ -149,13 +151,15 @@ function releasePenKeyboardQuiet(content: object): void {
  *
  * The keyboard hold `focusClaimedPenEditor` puts on the editor is released
  * BEFORE the focus call, or the button that asks for the keyboard would focus
- * an editor that still says it wants none.
+ * an editor that still says it wants none. The keyboard lock comes off first
+ * for the same reason (KeyboardLock.ts): asking to type outranks it.
  */
 export function setKeyboardFocus(
 	view: { focus(): void; readonly contentDOM: { blur(): void } },
 	wanted: boolean
 ): void {
 	if (wanted) {
+		setKeyboardLock(false);
 		releasePenKeyboardQuiet(view.contentDOM);
 		view.focus();
 	} else view.contentDOM.blur();

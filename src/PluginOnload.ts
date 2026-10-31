@@ -19,6 +19,7 @@ import { embedInkChanged, embedInkFileOpened, embedInkRenamed, initEmbedInkFontR
 import { initEmbedInkPrintPaper } from "./inline/EmbedInkPrint";
 import { onInkChanged } from "./inline/InkEvents";
 import { setPenHardwareStore } from "./inline/PenToolsMode";
+import { onKeyboardLockChanged, setKeyboardLockStore } from "./inline/KeyboardLock";
 import { canvasForNote, CanvasNoteOverride } from "./inline/CanvasNoteOverride";
 import { PageStore, WRITE_ATTEMPTS } from "./persistence/PageStore";
 import { runDetached } from "./util/Detached";
@@ -66,6 +67,13 @@ declare module "./main" {
 			// `"true"` over as the boolean. The restore accepts both spellings
 			// (PenToolsMode.ts); narrowing it here would only hide that.
 			load: (key) => this.app.loadLocalStorage(key) as string | boolean | null,
+			save: (key, value) => this.app.saveLocalStorage(key, value),
+		});
+		// The keyboard lock belongs to this device too: a tablet that keeps its
+		// on-screen keyboard down must not do it to a phone the vault syncs to.
+		// Restored here, before any note mounts and asks whether it is locked.
+		setKeyboardLockStore({
+			load: (key) => this.app.loadLocalStorage(key) as unknown,
 			save: (key, value) => this.app.saveLocalStorage(key, value),
 		});
 		// The side-button choice belongs to this device, never synced settings.
@@ -117,6 +125,8 @@ declare module "./main" {
 
 	/** Pen lab and diagnostics views, the inline ink host, the per-note canvas override and the editor extension. */
 	function onloadViews(this: HandwritingPlugin): void {
+		// Every pane's strip repaints the lock's light, not only the one pressed.
+		this.register(onKeyboardLockChanged(() => refreshAllStrips()));
 		this.registerView(HANDWRITING_PEN_LAB_VIEW_TYPE, (leaf) => new PenLabView(leaf));
 		this.registerView(
 			HANDWRITING_DIAGNOSTICS_VIEW_TYPE,

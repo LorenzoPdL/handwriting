@@ -6,6 +6,7 @@
 
 import { deviceHasNeverSeenAPen, penHardwareEverSeen, penHardwareSeen } from "./PenToolsMode";
 import { mouseDrawsFromLitTool, toolIsLit } from "./MouseInk";
+import { KEYBOARD_LOCK_TOGGLE, keyboardLocked } from "./KeyboardLock";
 import type { MobileToolsHost } from "./MobileTools";
 
 /**
@@ -439,6 +440,17 @@ export const BUTTONS: ButtonSpec[] = [
 		isActive: (h) => !h.penInksHere(),
 	},
 	{
+		icon: "keyboard-off",
+		glyph: "KL",
+		label: "Keyboard lock (taps never open the on-screen keyboard)",
+		commandId: KEYBOARD_LOCK_TOGGLE,
+		// Only where there is an on-screen keyboard to hold down: a device with
+		// touch. A mouse-only desktop would spend a slot on a lock with nothing
+		// to lock. Lit while locked, so the strip says which state the glass is in.
+		shownOn: (h) => h.hasTouch(),
+		isActive: () => keyboardLocked(),
+	},
+	{
 		icon: "trash-2",
 		glyph: "D",
 		label: "Delete selection",
@@ -496,6 +508,7 @@ export const DEFAULT_FOLD_ORDER: readonly string[] = [
 	"editor:redo",
 	"handwriting:inline-tool-pan",
 	PEN_INK_TOGGLE,
+	KEYBOARD_LOCK_TOGGLE,
 	"handwriting:paste-ink",
 	"handwriting:copy-selected-ink",
 	"handwriting:inline-tool-space",

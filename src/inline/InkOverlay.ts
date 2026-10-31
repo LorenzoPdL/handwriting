@@ -537,6 +537,8 @@ export class InkOverlayPlugin {
 	 * actually re-anchor the paint against the fresh content origin.
 	 */
 	contentResizeObserver: ResizeObserver | null = null;
+	/** Gives the editor back its own inputmode when this overlay unmounts (KeyboardLock.ts). */
+	releaseKeyboardLock: (() => void) | null = null;
 	/** The content width that observer last reported, layout px; a change reads the line anchors' signature. */
 	contentWidthSeen = -1;
 	/**

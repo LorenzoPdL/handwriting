@@ -5,6 +5,7 @@
 import { setIcon } from "obsidian";
 import { markMousePutDown, markToolPicked } from "./MouseInk";
 import { penInkEnabled, setPenInk } from "./PenInk";
+import { KEYBOARD_LOCK_TOGGLE, keyboardLocked, setKeyboardLock } from "./KeyboardLock";
 import { BUTTONS, mouseDrawsHere, PEN_INK_TOGGLE } from "./MobileToolsButtons";
 import { installMethods } from "./InstallMethods";
 import { eraserEdge, type MobileToolsHost, type MobileToolsOptions, type MobileTools } from "./MobileTools";
@@ -150,6 +151,15 @@ declare module "./MobileTools" {
 				// noise (the eraser/Backspace ruling, 2026-09-02). The button
 				// stops lying rather than explaining itself.
 				if (!(spec.isEnabled?.(this.host) ?? true)) {
+					this.refresh();
+					return;
+				}
+				// THE KEYBOARD LOCK touches nothing else on the strip: no tool, no pen
+				// ink, no mouse. Locking also puts away a keyboard that is already up;
+				// unlocking raises nothing - the next tap that places a caret does.
+				if (spec.commandId === KEYBOARD_LOCK_TOGGLE) {
+					setKeyboardLock(!keyboardLocked());
+					if (keyboardLocked()) this.host.setEditorFocus(false);
 					this.refresh();
 					return;
 				}
